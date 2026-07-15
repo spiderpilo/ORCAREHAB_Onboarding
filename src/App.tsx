@@ -257,7 +257,7 @@ function App() {
 
             <div>
               <p className="eyebrow">STEP 2 OF 2</p>
-              <h1>Direct deposit information</h1>
+              <h1>Direct Deposit Information</h1>
               <p>
                 Please enter your bank account details for direct deposit
                 payroll setup.
@@ -370,7 +370,7 @@ function App() {
 
           <div>
             <p className="eyebrow">STEP 1 OF 2</p>
-            <h1>Employee information</h1>
+            <h1>Employee Information</h1>
             <p>Please enter your legal information exactly as it appears on official records.</p>
           </div>
         </header>
