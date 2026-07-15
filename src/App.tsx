@@ -54,6 +54,36 @@ function formatDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
 
+const DEV_PAGES: { label: string; page: Page; submitted?: boolean }[] = [
+  { label: "Welcome", page: "welcome" },
+  { label: "Employee info", page: "employee-info" },
+  { label: "Bank info", page: "bank-info" },
+  { label: "Success", page: "bank-info", submitted: true },
+];
+
+function DevNav({
+  onNavigate,
+}: {
+  onNavigate: (page: Page, submitted: boolean) => void;
+}) {
+  if (!import.meta.env.DEV) return null;
+
+  return (
+    <div className="dev-nav">
+      <span>DEV</span>
+      {DEV_PAGES.map(({ label, page, submitted }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onNavigate(page, Boolean(submitted))}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = useState<Page>("welcome");
   const [form, setForm] = useState<EmployeeForm>(initialForm);
@@ -145,9 +175,15 @@ function App() {
     setIsSubmitted(true);
   };
 
+  const handleDevNavigate = (targetPage: Page, submitted: boolean) => {
+    setPage(targetPage);
+    setIsSubmitted(submitted);
+  };
+
   if (page === "welcome") {
     return (
       <main className="app-shell">
+        <DevNav onNavigate={handleDevNavigate} />
         <section className="welcome-card">
           <img
             className="welcome-logo"
@@ -189,6 +225,7 @@ function App() {
   if (isSubmitted) {
     return (
       <main className="app-shell">
+        <DevNav onNavigate={handleDevNavigate} />
         <section className="form-card success-card">
           <div className="success-icon">✓</div>
           <p className="eyebrow">INFORMATION RECEIVED</p>
@@ -205,6 +242,7 @@ function App() {
   if (page === "bank-info") {
     return (
       <main className="app-shell">
+        <DevNav onNavigate={handleDevNavigate} />
         <section className="form-card">
           <button
             className="back-button"
@@ -317,6 +355,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <DevNav onNavigate={handleDevNavigate} />
       <section className="form-card">
         <button
           className="back-button"
