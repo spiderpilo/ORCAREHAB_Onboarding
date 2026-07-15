@@ -390,19 +390,14 @@ function App() {
 
             <label className="form-field">
               <span>Degree</span>
-              <select
+              <input
+                type="text"
                 name="degree"
+                placeholder="e.g. Nursing, Engineering"
                 value={form.degree}
                 onChange={(event) => updateField("degree", event.target.value)}
                 required
-              >
-                <option value="" disabled>
-                  Select your degree
-                </option>
-                <option value="nursing">Nursing</option>
-                <option value="engineering">Engineering</option>
-                <option value="other">Other</option>
-              </select>
+              />
             </label>
           </div>
 
