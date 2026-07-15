@@ -307,6 +307,11 @@ input:focus-visible {
   background: #333;
 }
 
+.file-name {
+  color: var(--navy);
+  font-weight: 600;
+}
+
 .license-preview {
   width: 140px;
   height: 90px;

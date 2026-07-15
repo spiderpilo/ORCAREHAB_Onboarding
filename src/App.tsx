@@ -13,6 +13,7 @@ interface EmployeeForm {
   degree: string;
   ssn: string;
   driverLicensePhoto: File | null;
+  resume: File | null;
 }
 
 interface BankForm {
@@ -30,6 +31,7 @@ const initialForm: EmployeeForm = {
   degree: "",
   ssn: "",
   driverLicensePhoto: null,
+  resume: null,
 };
 
 const initialBankForm: BankForm = {
@@ -130,6 +132,14 @@ function App() {
     }));
   };
 
+  const handleResumeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setForm((currentForm) => ({
+      ...currentForm,
+      resume: file,
+    }));
+  };
+
   const handleEmployeeSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -142,6 +152,11 @@ function App() {
 
     if (!form.driverLicensePhoto) {
       alert("Please attach a photo of your driver's license.");
+      return;
+    }
+
+    if (!form.resume) {
+      alert("Please attach your resume.");
       return;
     }
 
@@ -489,6 +504,21 @@ function App() {
                 src={licensePreview}
                 alt="Driver's license preview"
               />
+            )}
+          </label>
+
+          <label className="form-field">
+            <span>Resume</span>
+            <input
+              type="file"
+              name="resume"
+              accept=".pdf,.doc,.docx"
+              onChange={handleResumeChange}
+              required
+            />
+
+            {form.resume && (
+              <small className="file-name">{form.resume.name}</small>
             )}
           </label>
 
