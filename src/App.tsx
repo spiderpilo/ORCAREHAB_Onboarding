@@ -16,11 +16,18 @@ interface EmployeeForm {
   resume: File | null;
 }
 
-interface BankForm {
+interface BankAccountForm {
   bankName: string;
   accountType: string;
   routingNumber: string;
   accountNumber: string;
+}
+
+interface BankForm {
+  splitDeposit: boolean;
+  primaryAccount: BankAccountForm;
+  secondaryAccount: BankAccountForm;
+  primaryAllocation: string;
 }
 
 const initialForm: EmployeeForm = {
@@ -34,11 +41,18 @@ const initialForm: EmployeeForm = {
   resume: null,
 };
 
-const initialBankForm: BankForm = {
+const initialBankAccount: BankAccountForm = {
   bankName: "",
   accountType: "",
   routingNumber: "",
   accountNumber: "",
+};
+
+const initialBankForm: BankForm = {
+  splitDeposit: false,
+  primaryAccount: { ...initialBankAccount },
+  secondaryAccount: { ...initialBankAccount },
+  primaryAllocation: "50",
 };
 
 function formatSSN(value: string): string {
@@ -86,6 +100,75 @@ function DevNav({
   );
 }
 
+function BankAccountFields({
+  account,
+  onChange,
+}: {
+  account: BankAccountForm;
+  onChange: (field: keyof BankAccountForm, value: string) => void;
+}) {
+  return (
+    <div className="bank-account-fields">
+      <label className="form-field">
+        <span>Bank name</span>
+        <input
+          type="text"
+          autoComplete="off"
+          placeholder="Enter your bank's name"
+          value={account.bankName}
+          onChange={(event) => onChange("bankName", event.target.value)}
+          required
+        />
+      </label>
+
+      <label className="form-field">
+        <span>Account type</span>
+        <select
+          value={account.accountType}
+          onChange={(event) => onChange("accountType", event.target.value)}
+          required
+        >
+          <option value="" disabled>
+            Select account type
+          </option>
+          <option value="checking">Checking</option>
+          <option value="savings">Savings</option>
+        </select>
+      </label>
+
+      <div className="field-row">
+        <label className="form-field">
+          <span>Routing number</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="9-digit routing number"
+            maxLength={9}
+            value={account.routingNumber}
+            onChange={(event) => onChange("routingNumber", event.target.value)}
+            required
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Account number</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="Account number"
+            maxLength={17}
+            value={account.accountNumber}
+            onChange={(event) => onChange("accountNumber", event.target.value)}
+            required
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = useState<Page>("welcome");
   const [form, setForm] = useState<EmployeeForm>(initialForm);
@@ -112,15 +195,39 @@ function App() {
     }));
   };
 
-  const updateBankField = (field: keyof BankForm, value: string) => {
+  const updateBankAccountField = (
+    account: "primaryAccount" | "secondaryAccount",
+    field: keyof BankAccountForm,
+    value: string,
+  ) => {
     setBankForm((currentForm) => ({
       ...currentForm,
-      [field]:
-        field === "routingNumber"
-          ? formatDigits(value, 9)
-          : field === "accountNumber"
-            ? formatDigits(value, 17)
-            : value,
+      [account]: {
+        ...currentForm[account],
+        [field]:
+          field === "routingNumber"
+            ? formatDigits(value, 9)
+            : field === "accountNumber"
+              ? formatDigits(value, 17)
+              : value,
+      },
+    }));
+  };
+
+  const toggleSplitDeposit = () => {
+    setBankForm((currentForm) => ({
+      ...currentForm,
+      splitDeposit: !currentForm.splitDeposit,
+    }));
+  };
+
+  const updatePrimaryAllocation = (value: string) => {
+    const digits = formatDigits(value, 3);
+    const capped = digits === "" ? "" : String(Math.min(Number(digits), 100));
+
+    setBankForm((currentForm) => ({
+      ...currentForm,
+      primaryAllocation: capped,
     }));
   };
 
@@ -173,14 +280,33 @@ function App() {
   const handleBankSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (bankForm.routingNumber.length !== 9) {
+    if (bankForm.primaryAccount.routingNumber.length !== 9) {
       alert("Please enter a valid 9-digit routing number.");
       return;
     }
 
-    if (bankForm.accountNumber.length < 4) {
+    if (bankForm.primaryAccount.accountNumber.length < 4) {
       alert("Please enter a valid account number.");
       return;
+    }
+
+    if (bankForm.splitDeposit) {
+      if (bankForm.secondaryAccount.routingNumber.length !== 9) {
+        alert("Please enter a valid 9-digit routing number for account 2.");
+        return;
+      }
+
+      if (bankForm.secondaryAccount.accountNumber.length < 4) {
+        alert("Please enter a valid account number for account 2.");
+        return;
+      }
+
+      const allocation = Number(bankForm.primaryAllocation);
+
+      if (!allocation || allocation < 1 || allocation > 99) {
+        alert("Please enter a split percentage between 1 and 99 for account 1.");
+        return;
+      }
     }
 
     // Replace this with a secure request to your backend.
@@ -285,74 +411,65 @@ function App() {
           </div>
 
           <form className="employee-form" onSubmit={handleBankSubmit}>
-            <label className="form-field">
-              <span>Bank name</span>
-              <input
-                type="text"
-                name="bankName"
-                autoComplete="off"
-                placeholder="Enter your bank's name"
-                value={bankForm.bankName}
-                onChange={(event) =>
-                  updateBankField("bankName", event.target.value)
-                }
-                required
-              />
+            <label className="toggle-row">
+              <span className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={bankForm.splitDeposit}
+                  onChange={toggleSplitDeposit}
+                />
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+              </span>
+              <span className="toggle-label">
+                Split my paycheck between two accounts
+              </span>
             </label>
 
-            <label className="form-field">
-              <span>Account type</span>
-              <select
-                name="accountType"
-                value={bankForm.accountType}
-                onChange={(event) =>
-                  updateBankField("accountType", event.target.value)
-                }
-                required
-              >
-                <option value="" disabled>
-                  Select account type
-                </option>
-                <option value="checking">Checking</option>
-                <option value="savings">Savings</option>
-              </select>
-            </label>
+            {bankForm.splitDeposit && <p className="account-label">Account 1</p>}
 
-            <div className="field-row">
-              <label className="form-field">
-                <span>Routing number</span>
-                <input
-                  type="password"
-                  name="routingNumber"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="9-digit routing number"
-                  maxLength={9}
-                  value={bankForm.routingNumber}
-                  onChange={(event) =>
-                    updateBankField("routingNumber", event.target.value)
-                  }
-                  required
-                />
-              </label>
+            <BankAccountFields
+              account={bankForm.primaryAccount}
+              onChange={(field, value) =>
+                updateBankAccountField("primaryAccount", field, value)
+              }
+            />
 
-              <label className="form-field">
-                <span>Account number</span>
-                <input
-                  type="password"
-                  name="accountNumber"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="Account number"
-                  maxLength={17}
-                  value={bankForm.accountNumber}
-                  onChange={(event) =>
-                    updateBankField("accountNumber", event.target.value)
+            {bankForm.splitDeposit && (
+              <>
+                <label className="form-field">
+                  <span>Percentage to Account 1</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 50"
+                    maxLength={3}
+                    value={bankForm.primaryAllocation}
+                    onChange={(event) =>
+                      updatePrimaryAllocation(event.target.value)
+                    }
+                    required
+                  />
+                  <small>
+                    Account 2 will receive the remaining{" "}
+                    {bankForm.primaryAllocation
+                      ? 100 - Number(bankForm.primaryAllocation)
+                      : 0}
+                    %.
+                  </small>
+                </label>
+
+                <p className="account-label">Account 2</p>
+
+                <BankAccountFields
+                  account={bankForm.secondaryAccount}
+                  onChange={(field, value) =>
+                    updateBankAccountField("secondaryAccount", field, value)
                   }
-                  required
                 />
-              </label>
-            </div>
+              </>
+            )}
 
             <div className="form-footer">
               <p>All fields are required.</p>
