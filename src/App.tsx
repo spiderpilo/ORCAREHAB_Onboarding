@@ -9,6 +9,7 @@ interface EmployeeForm {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  phone: string;
   address: string;
   degree: string;
   ssn: string;
@@ -34,6 +35,7 @@ const initialForm: EmployeeForm = {
   firstName: "",
   lastName: "",
   dateOfBirth: "",
+  phone: "",
   address: "",
   degree: "",
   ssn: "",
@@ -68,6 +70,17 @@ function formatSSN(value: string): string {
 
 function formatDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function formatPhone(value: string): string {
+  const numbers = value.replace(/\D/g, "").slice(0, 10);
+
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 6) {
+    return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
+  }
+
+  return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6)}`;
 }
 
 const DEV_PAGES: { label: string; page: Page; submitted?: boolean }[] = [
@@ -191,7 +204,12 @@ function App() {
   const updateField = (field: keyof EmployeeForm, value: string) => {
     setForm((currentForm) => ({
       ...currentForm,
-      [field]: field === "ssn" ? formatSSN(value) : value,
+      [field]:
+        field === "ssn"
+          ? formatSSN(value)
+          : field === "phone"
+            ? formatPhone(value)
+            : value,
     }));
   };
 
@@ -254,6 +272,13 @@ function App() {
 
     if (ssnNumbers.length !== 9) {
       alert("Please enter a valid 9-digit Social Security number.");
+      return;
+    }
+
+    const phoneNumbers = form.phone.replace(/\D/g, "");
+
+    if (phoneNumbers.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
       return;
     }
 
@@ -571,6 +596,21 @@ function App() {
               />
             </label>
           </div>
+
+          <label className="form-field">
+            <span>Phone number</span>
+            <input
+              type="tel"
+              name="phone"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="(555) 123-4567"
+              maxLength={14}
+              value={form.phone}
+              onChange={(event) => updateField("phone", event.target.value)}
+              required
+            />
+          </label>
 
           <label className="form-field">
             <span>Home address</span>
