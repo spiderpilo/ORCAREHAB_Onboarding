@@ -3,7 +3,7 @@ import type { ChangeEvent, SubmitEvent } from "react";
 import logo from "./assets/orca-logo.png";
 import "./App.css";
 
-type Page = "welcome" | "employee-info" | "bank-info";
+type Page = "welcome" | "employee-info" | "bank-info" | "additional-info";
 
 interface EmployeeForm {
   firstName: string;
@@ -31,6 +31,16 @@ interface BankForm {
   primaryAllocation: string;
 }
 
+interface AdditionalForm {
+  emergencyContactName: string;
+  emergencyContactRelationship: string;
+  emergencyContactPhone: string;
+  workAuthorization: string;
+  filingStatus: string;
+  dependentsAmount: string;
+  extraWithholding: string;
+}
+
 const initialForm: EmployeeForm = {
   firstName: "",
   lastName: "",
@@ -55,6 +65,16 @@ const initialBankForm: BankForm = {
   primaryAccount: { ...initialBankAccount },
   secondaryAccount: { ...initialBankAccount },
   primaryAllocation: "50",
+};
+
+const initialAdditionalForm: AdditionalForm = {
+  emergencyContactName: "",
+  emergencyContactRelationship: "",
+  emergencyContactPhone: "",
+  workAuthorization: "",
+  filingStatus: "",
+  dependentsAmount: "",
+  extraWithholding: "",
 };
 
 function formatSSN(value: string): string {
@@ -87,7 +107,8 @@ const DEV_PAGES: { label: string; page: Page; submitted?: boolean }[] = [
   { label: "Welcome", page: "welcome" },
   { label: "Employee info", page: "employee-info" },
   { label: "Bank info", page: "bank-info" },
-  { label: "Success", page: "bank-info", submitted: true },
+  { label: "Additional info", page: "additional-info" },
+  { label: "Success", page: "additional-info", submitted: true },
 ];
 
 function DevNav({
@@ -186,6 +207,9 @@ function App() {
   const [page, setPage] = useState<Page>("welcome");
   const [form, setForm] = useState<EmployeeForm>(initialForm);
   const [bankForm, setBankForm] = useState<BankForm>(initialBankForm);
+  const [additionalForm, setAdditionalForm] = useState<AdditionalForm>(
+    initialAdditionalForm,
+  );
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [licensePreview, setLicensePreview] = useState<string | null>(null);
 
@@ -246,6 +270,21 @@ function App() {
     setBankForm((currentForm) => ({
       ...currentForm,
       primaryAllocation: capped,
+    }));
+  };
+
+  const updateAdditionalField = (
+    field: keyof AdditionalForm,
+    value: string,
+  ) => {
+    setAdditionalForm((currentForm) => ({
+      ...currentForm,
+      [field]:
+        field === "emergencyContactPhone"
+          ? formatPhone(value)
+          : field === "dependentsAmount" || field === "extraWithholding"
+            ? formatDigits(value, 6)
+            : value,
     }));
   };
 
@@ -338,6 +377,35 @@ function App() {
     // Never save bank account details in localStorage or sessionStorage.
     console.log(bankForm);
 
+    setPage("additional-info");
+  };
+
+  const handleAdditionalSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const emergencyPhoneNumbers = additionalForm.emergencyContactPhone.replace(
+      /\D/g,
+      "",
+    );
+
+    if (emergencyPhoneNumbers.length !== 10) {
+      alert("Please enter a valid 10-digit emergency contact phone number.");
+      return;
+    }
+
+    if (!additionalForm.workAuthorization) {
+      alert("Please select your work authorization status.");
+      return;
+    }
+
+    if (!additionalForm.filingStatus) {
+      alert("Please select your tax filing status.");
+      return;
+    }
+
+    // Replace this with a secure request to your backend.
+    console.log(additionalForm);
+
     setIsSubmitted(true);
   };
 
@@ -397,8 +465,9 @@ function App() {
           <p className="eyebrow">INFORMATION RECEIVED</p>
           <h1>Thank you, {form.firstName}.</h1>
           <p>
-            Your employee and banking information has been submitted. Our
-            team will follow up with the next steps of onboarding.
+            Your employee, banking, and additional information has been
+            submitted. Our team will follow up with the next steps of
+            onboarding.
           </p>
         </section>
       </main>
@@ -422,7 +491,7 @@ function App() {
             <img className="form-logo" src={logo} alt="ORCA Rehab" />
 
             <div>
-              <p className="eyebrow">STEP 2 OF 2</p>
+              <p className="eyebrow">STEP 2 OF 3</p>
               <h1>Direct Deposit Information</h1>
               <p>
                 Please enter your bank account details for direct deposit
@@ -432,7 +501,7 @@ function App() {
           </header>
 
           <div className="progress-track" aria-label="Onboarding progress">
-            <div className="progress-value" style={{ width: "100%" }} />
+            <div className="progress-value" style={{ width: "66%" }} />
           </div>
 
           <form className="employee-form" onSubmit={handleBankSubmit}>
@@ -500,6 +569,191 @@ function App() {
               <p>All fields are required.</p>
 
               <button className="primary-button" type="submit">
+                Continue
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  if (page === "additional-info") {
+    return (
+      <main className="app-shell">
+        <DevNav onNavigate={handleDevNavigate} />
+        <section className="form-card">
+          <button
+            className="back-button"
+            type="button"
+            onClick={() => setPage("bank-info")}
+          >
+            ← Back
+          </button>
+
+          <header className="form-header">
+            <img className="form-logo" src={logo} alt="ORCA Rehab" />
+
+            <div>
+              <p className="eyebrow">STEP 3 OF 3</p>
+              <h1>Additional Information</h1>
+              <p>
+                A few more required details: emergency contact, work
+                eligibility, and tax withholding.
+              </p>
+            </div>
+          </header>
+
+          <div className="progress-track" aria-label="Onboarding progress">
+            <div className="progress-value" style={{ width: "100%" }} />
+          </div>
+
+          <form className="employee-form" onSubmit={handleAdditionalSubmit}>
+            <p className="account-label">Emergency contact</p>
+
+            <div className="field-row">
+              <label className="form-field">
+                <span>Contact name</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Full name"
+                  value={additionalForm.emergencyContactName}
+                  onChange={(event) =>
+                    updateAdditionalField(
+                      "emergencyContactName",
+                      event.target.value,
+                    )
+                  }
+                  required
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Relationship</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="e.g. Spouse, Parent"
+                  value={additionalForm.emergencyContactRelationship}
+                  onChange={(event) =>
+                    updateAdditionalField(
+                      "emergencyContactRelationship",
+                      event.target.value,
+                    )
+                  }
+                  required
+                />
+              </label>
+            </div>
+
+            <label className="form-field">
+              <span>Contact phone number</span>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="(555) 123-4567"
+                maxLength={14}
+                value={additionalForm.emergencyContactPhone}
+                onChange={(event) =>
+                  updateAdditionalField(
+                    "emergencyContactPhone",
+                    event.target.value,
+                  )
+                }
+                required
+              />
+            </label>
+
+            <p className="account-label">Work authorization (Form I-9)</p>
+
+            <label className="form-field">
+              <span>Citizenship / work authorization status</span>
+              <select
+                value={additionalForm.workAuthorization}
+                onChange={(event) =>
+                  updateAdditionalField("workAuthorization", event.target.value)
+                }
+                required
+              >
+                <option value="" disabled>
+                  Select your status
+                </option>
+                <option value="citizen">U.S. citizen</option>
+                <option value="national">U.S. national</option>
+                <option value="permanent-resident">
+                  Lawful permanent resident
+                </option>
+                <option value="authorized-alien">
+                  Alien authorized to work
+                </option>
+              </select>
+            </label>
+
+            <p className="account-label">Tax withholding (Form W-4)</p>
+
+            <label className="form-field">
+              <span>Filing status</span>
+              <select
+                value={additionalForm.filingStatus}
+                onChange={(event) =>
+                  updateAdditionalField("filingStatus", event.target.value)
+                }
+                required
+              >
+                <option value="" disabled>
+                  Select your filing status
+                </option>
+                <option value="single">
+                  Single or married filing separately
+                </option>
+                <option value="married-filing-jointly">
+                  Married filing jointly
+                </option>
+                <option value="head-of-household">Head of household</option>
+              </select>
+            </label>
+
+            <div className="field-row">
+              <label className="form-field">
+                <span>Dependents amount ($)</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g. 2000"
+                  value={additionalForm.dependentsAmount}
+                  onChange={(event) =>
+                    updateAdditionalField(
+                      "dependentsAmount",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Extra withholding per paycheck ($)</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g. 50"
+                  value={additionalForm.extraWithholding}
+                  onChange={(event) =>
+                    updateAdditionalField(
+                      "extraWithholding",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+            </div>
+
+            <div className="form-footer">
+              <p>Fields marked required must be completed.</p>
+
+              <button className="primary-button" type="submit">
                 Submit
                 <span aria-hidden="true">→</span>
               </button>
@@ -526,14 +780,14 @@ function App() {
           <img className="form-logo" src={logo} alt="ORCA Rehab" />
 
           <div>
-            <p className="eyebrow">STEP 1 OF 2</p>
+            <p className="eyebrow">STEP 1 OF 3</p>
             <h1>Employee Information</h1>
             <p>Please enter your legal information exactly as it appears on official records.</p>
           </div>
         </header>
 
         <div className="progress-track" aria-label="Onboarding progress">
-          <div className="progress-value" style={{ width: "50%" }} />
+          <div className="progress-value" style={{ width: "33%" }} />
         </div>
 
         <form className="employee-form" onSubmit={handleEmployeeSubmit}>
