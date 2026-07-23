@@ -63,6 +63,14 @@ function toQuickBooksEmployee(employee) {
   if (employee.ssn) qboEmployee.SSN = employee.ssn;
   if (isValidBirthDate(employee.dateOfBirth)) {
     qboEmployee.BirthDate = employee.dateOfBirth;
+  } else if (employee.dateOfBirth) {
+    console.warn(
+      `Rejected date of birth "${employee.dateOfBirth}" for ${employee.firstName} ${employee.lastName} — not sent to QuickBooks.`,
+    );
+  } else {
+    console.warn(
+      `No date of birth received for ${employee.firstName} ${employee.lastName}.`,
+    );
   }
   if (employee.phone) qboEmployee.PrimaryPhone = { FreeFormNumber: employee.phone };
   if (employee.address) qboEmployee.PrimaryAddr = { Line1: employee.address };
