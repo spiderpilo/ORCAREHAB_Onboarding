@@ -92,6 +92,8 @@ function formatDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+
 function formatPhone(value: string): string {
   const numbers = value.replace(/\D/g, "").slice(0, 10);
 
@@ -211,6 +213,7 @@ function App() {
     initialAdditionalForm,
   );
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [licensePreview, setLicensePreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -380,7 +383,9 @@ function App() {
     setPage("additional-info");
   };
 
-  const handleAdditionalSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+  const handleAdditionalSubmit = async (
+    event: SubmitEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
     const emergencyPhoneNumbers = additionalForm.emergencyContactPhone.replace(
@@ -403,10 +408,50 @@ function App() {
       return;
     }
 
-    // Replace this with a secure request to your backend.
-    console.log(additionalForm);
+    setIsSubmitting(true);
 
-    setIsSubmitted(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/onboarding/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee: {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            dateOfBirth: form.dateOfBirth,
+            phone: form.phone.replace(/\D/g, ""),
+            address: form.address,
+            degree: form.degree,
+            ssn: form.ssn.replace(/\D/g, ""),
+          },
+          bank: bankForm,
+          additional: additionalForm,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? `Submission failed with status ${response.status}`);
+      }
+
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("Failed to submit onboarding data:", error);
+
+      if (error instanceof TypeError) {
+        alert(
+          "We couldn't reach the onboarding server. Please make sure it's running and try again.",
+        );
+      } else {
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Something went wrong submitting your information.",
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDevNavigate = (targetPage: Page, submitted: boolean) => {
@@ -753,8 +798,12 @@ function App() {
             <div className="form-footer">
               <p>Fields marked required must be completed.</p>
 
-              <button className="primary-button" type="submit">
-                Submit
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting…" : "Submit"}
                 <span aria-hidden="true">→</span>
               </button>
             </div>
