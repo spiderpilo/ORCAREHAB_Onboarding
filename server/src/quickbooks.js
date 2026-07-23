@@ -28,15 +28,29 @@ async function handleCallback(oauthClient, callbackUrl) {
   return tokens;
 }
 
-function getQuickBooksClient() {
+// QuickBooks access tokens expire after 1 hour, so we refresh using the
+// stored refresh token before every request rather than tracking expiry.
+async function refreshTokens() {
   const tokens = loadTokens();
 
-  if (!tokens) {
+  if (!tokens?.refresh_token) {
     throw new Error(
       "QuickBooks is not connected yet. Visit /api/quickbooks/connect first.",
     );
   }
 
+  const oauthClient = createOAuthClient();
+  const authResponse = await oauthClient.refreshUsingToken(
+    tokens.refresh_token,
+  );
+  const refreshedTokens = authResponse.getJson();
+
+  saveTokens({ ...refreshedTokens, realmId: tokens.realmId });
+
+  return { ...refreshedTokens, realmId: tokens.realmId };
+}
+
+function buildQuickBooksClient(tokens) {
   return new QuickBooks(
     process.env.QBO_CLIENT_ID,
     process.env.QBO_CLIENT_SECRET,
@@ -51,8 +65,9 @@ function getQuickBooksClient() {
   );
 }
 
-function createEmployee(employeeData) {
-  const qbo = getQuickBooksClient();
+async function createEmployee(employeeData) {
+  const tokens = await refreshTokens();
+  const qbo = buildQuickBooksClient(tokens);
 
   return new Promise((resolve, reject) => {
     qbo.createEmployee(employeeData, (err, employee) => {
