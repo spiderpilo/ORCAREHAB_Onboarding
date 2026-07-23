@@ -310,6 +310,19 @@ function App() {
   const handleEmployeeSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const [dobYear] = form.dateOfBirth.split("-");
+    const currentYear = new Date().getFullYear();
+
+    if (
+      !dobYear ||
+      dobYear.length !== 4 ||
+      Number(dobYear) < currentYear - 100 ||
+      Number(dobYear) > currentYear - 14
+    ) {
+      alert("Please enter a valid date of birth.");
+      return;
+    }
+
     const ssnNumbers = form.ssn.replace(/\D/g, "");
 
     if (ssnNumbers.length !== 9) {

@@ -42,6 +42,17 @@ app.get("/api/quickbooks/status", (req, res) => {
 // Employee entity that's actually writable via the public Accounting API.
 // QuickBooks Online Payroll (direct deposit, W-4 withholding) is NOT covered
 // by this public API — Intuit restricts payroll writes to approved partners.
+function isValidBirthDate(dateOfBirth) {
+  const [year] = (dateOfBirth || "").split("-");
+  const currentYear = new Date().getFullYear();
+
+  return (
+    year?.length === 4 &&
+    Number(year) >= currentYear - 100 &&
+    Number(year) <= currentYear - 14
+  );
+}
+
 function toQuickBooksEmployee(employee) {
   const qboEmployee = {
     GivenName: employee.firstName,
@@ -50,7 +61,9 @@ function toQuickBooksEmployee(employee) {
   };
 
   if (employee.ssn) qboEmployee.SSN = employee.ssn;
-  if (employee.dateOfBirth) qboEmployee.BirthDate = employee.dateOfBirth;
+  if (isValidBirthDate(employee.dateOfBirth)) {
+    qboEmployee.BirthDate = employee.dateOfBirth;
+  }
   if (employee.phone) qboEmployee.PrimaryPhone = { FreeFormNumber: employee.phone };
   if (employee.address) qboEmployee.PrimaryAddr = { Line1: employee.address };
 
