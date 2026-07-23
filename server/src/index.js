@@ -222,8 +222,6 @@ app.get("/api/admin/uploads/:filename", requireAuth, (req, res) => {
   res.sendFile(filePath);
 });
 
-app.use("/admin", express.static(path.join(__dirname, "..", "public", "admin")));
-
 app.listen(PORT, () => {
   console.log(`Onboarding server listening on http://localhost:${PORT}`);
 });

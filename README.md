@@ -72,10 +72,12 @@ Set these additional variables in `server/.env` (see `.env.example` for the full
 
 Optionally, fill in the `SMTP_*` and `NOTIFY_EMAIL_TO` variables to get an email notification whenever a new submission comes in. Leave them blank to skip notifications entirely (nothing breaks — it just logs a warning and moves on).
 
-Once the server is running, HR/Payroll can log in at:
+With both the frontend (`npm run dev`) and backend (`cd server && npm run dev`) running, HR/Payroll can log in at:
 
 ```
-http://localhost:4000/admin
+http://localhost:5173/admin
 ```
+
+This is part of the React app (not the backend), reusing the onboarding portal's own styling. The Vite dev server proxies `/api` requests through to the backend, so the login session works the same as if everything were on one origin.
 
 to see every submission (name, date, QuickBooks sync status), view full details for manual entry into QB Payroll, download the uploaded license photo/resume, and remove a submission once it's been processed.
