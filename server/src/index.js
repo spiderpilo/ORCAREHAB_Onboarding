@@ -43,22 +43,27 @@ app.get("/api/quickbooks/status", (req, res) => {
 // QuickBooks Online Payroll (direct deposit, W-4 withholding) is NOT covered
 // by this public API — Intuit restricts payroll writes to approved partners.
 function toQuickBooksEmployee(employee) {
-  return {
+  const qboEmployee = {
     GivenName: employee.firstName,
     FamilyName: employee.lastName,
-    SSN: employee.ssn,
-    BirthDate: employee.dateOfBirth,
-    PrimaryPhone: { FreeFormNumber: employee.phone },
-    PrimaryAddr: { Line1: employee.address },
     HiredDate: new Date().toISOString().slice(0, 10),
   };
+
+  if (employee.ssn) qboEmployee.SSN = employee.ssn;
+  if (employee.dateOfBirth) qboEmployee.BirthDate = employee.dateOfBirth;
+  if (employee.phone) qboEmployee.PrimaryPhone = { FreeFormNumber: employee.phone };
+  if (employee.address) qboEmployee.PrimaryAddr = { Line1: employee.address };
+
+  return qboEmployee;
 }
 
 app.post("/api/onboarding/submit", async (req, res) => {
   const { employee, bank, additional } = req.body;
 
-  if (!employee) {
-    return res.status(400).json({ error: "Missing employee data." });
+  if (!employee?.firstName || !employee?.lastName) {
+    return res
+      .status(400)
+      .json({ error: "Employee first and last name are required." });
   }
 
   try {
