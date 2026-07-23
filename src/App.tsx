@@ -424,22 +424,33 @@ function App() {
     setIsSubmitting(true);
 
     try {
+      const formData = new FormData();
+
+      formData.append(
+        "employee",
+        JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          dateOfBirth: form.dateOfBirth,
+          phone: form.phone.replace(/\D/g, ""),
+          address: form.address,
+          degree: form.degree,
+          ssn: form.ssn.replace(/\D/g, ""),
+        }),
+      );
+      formData.append("bank", JSON.stringify(bankForm));
+      formData.append("additional", JSON.stringify(additionalForm));
+
+      if (form.driverLicensePhoto) {
+        formData.append("driverLicensePhoto", form.driverLicensePhoto);
+      }
+      if (form.resume) {
+        formData.append("resume", form.resume);
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/onboarding/submit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employee: {
-            firstName: form.firstName,
-            lastName: form.lastName,
-            dateOfBirth: form.dateOfBirth,
-            phone: form.phone.replace(/\D/g, ""),
-            address: form.address,
-            degree: form.degree,
-            ssn: form.ssn.replace(/\D/g, ""),
-          },
-          bank: bankForm,
-          additional: additionalForm,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {

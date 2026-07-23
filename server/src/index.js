@@ -1,6 +1,11 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
+const session = require("express-session");
+const multer = require("multer");
 const {
   createOAuthClient,
   getAuthorizeUri,
@@ -8,12 +13,38 @@ const {
   createEmployee,
 } = require("./quickbooks");
 const { loadTokens } = require("./tokenStore");
+const db = require("./db");
+const { verifyLogin, requireAuth } = require("./auth");
+const { notifyNewSubmission } = require("./mailer");
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
 const PORT = process.env.PORT || 4000;
+const UPLOADS_DIR = path.join(__dirname, "..", "uploads");
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173", credentials: true }));
+app.use(express.json());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "dev-only-insecure-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 8 },
+  }),
+);
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: UPLOADS_DIR,
+    filename: (req, file, cb) => {
+      const unique = crypto.randomBytes(8).toString("hex");
+      cb(null, `${Date.now()}-${unique}${path.extname(file.originalname)}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// --- QuickBooks OAuth ---
 
 // Step 1: visit this in a browser to connect this server to your QuickBooks
 // Online company. Only needs to be done once (until the refresh token expires).
@@ -67,10 +98,6 @@ function toQuickBooksEmployee(employee) {
     console.warn(
       `Rejected date of birth "${employee.dateOfBirth}" for ${employee.firstName} ${employee.lastName} — not sent to QuickBooks.`,
     );
-  } else {
-    console.warn(
-      `No date of birth received for ${employee.firstName} ${employee.lastName}.`,
-    );
   }
   if (employee.phone) qboEmployee.PrimaryPhone = { FreeFormNumber: employee.phone };
   if (employee.address) qboEmployee.PrimaryAddr = { Line1: employee.address };
@@ -78,32 +105,124 @@ function toQuickBooksEmployee(employee) {
   return qboEmployee;
 }
 
-app.post("/api/onboarding/submit", async (req, res) => {
-  const { employee, bank, additional } = req.body;
+// --- Onboarding submission ---
+// Local storage is the source of truth: we always persist the full
+// submission (encrypted at rest) regardless of whether QuickBooks succeeds,
+// since QuickBooks is an external, best-effort sync, not the record of truth.
+app.post(
+  "/api/onboarding/submit",
+  upload.fields([
+    { name: "driverLicensePhoto", maxCount: 1 },
+    { name: "resume", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    let employee, bank, additional;
 
-  if (!employee?.firstName || !employee?.lastName) {
-    return res
-      .status(400)
-      .json({ error: "Employee first and last name are required." });
-  }
+    try {
+      employee = JSON.parse(req.body.employee);
+      bank = JSON.parse(req.body.bank);
+      additional = JSON.parse(req.body.additional);
+    } catch {
+      return res.status(400).json({ error: "Malformed submission data." });
+    }
 
-  try {
-    const qboEmployee = await createEmployee(toQuickBooksEmployee(employee));
+    if (!employee?.firstName || !employee?.lastName) {
+      return res
+        .status(400)
+        .json({ error: "Employee first and last name are required." });
+    }
 
-    // Bank account and W-4 details can't be pushed into QuickBooks Online
-    // Payroll via the public API. Replace this with your own secure storage
-    // (encrypted at rest) so payroll can enter them manually for now.
-    console.log("Bank + W-4 details pending manual entry in QB Payroll:", {
+    const driverLicenseFile = req.files?.driverLicensePhoto?.[0];
+    const resumeFile = req.files?.resume?.[0];
+
+    const submissionId = db.createSubmission({
+      employee,
       bank,
       additional,
+      driverLicensePath: driverLicenseFile?.filename,
+      resumePath: resumeFile?.filename,
     });
 
-    res.json({ success: true, quickbooksEmployeeId: qboEmployee.Id });
+    let quickbooksEmployeeId = null;
+
+    try {
+      const qboEmployee = await createEmployee(toQuickBooksEmployee(employee));
+      quickbooksEmployeeId = qboEmployee.Id;
+      db.markQuickBooksSynced(submissionId, quickbooksEmployeeId);
+    } catch (error) {
+      console.error(
+        `QuickBooks sync failed for submission ${submissionId} (stored locally, can retry manually):`,
+        error,
+      );
+    }
+
+    try {
+      await notifyNewSubmission(employee);
+    } catch (error) {
+      console.error("Failed to send notification email:", error);
+    }
+
+    res.json({ success: true, id: submissionId, quickbooksEmployeeId });
+  },
+);
+
+// --- Admin auth ---
+
+app.post("/api/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const valid = await verifyLogin(username, password);
+    if (!valid) return res.status(401).json({ error: "Invalid credentials." });
+
+    req.session.isAdmin = true;
+    res.json({ success: true });
   } catch (error) {
-    console.error("Failed to create QuickBooks employee:", error);
-    res.status(502).json({ error: "Failed to create employee in QuickBooks." });
+    console.error("Admin login error:", error);
+    res.status(500).json({ error: "Login is not configured correctly." });
   }
 });
+
+app.post("/api/admin/logout", (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+app.get("/api/admin/session", (req, res) => {
+  res.json({ authenticated: Boolean(req.session?.isAdmin) });
+});
+
+// --- Admin data ---
+
+app.get("/api/admin/submissions", requireAuth, (req, res) => {
+  res.json(db.listSubmissions());
+});
+
+app.get("/api/admin/submissions/:id", requireAuth, (req, res) => {
+  const submission = db.getSubmission(req.params.id);
+  if (!submission) return res.status(404).json({ error: "Not found." });
+  res.json(submission);
+});
+
+app.delete("/api/admin/submissions/:id", requireAuth, (req, res) => {
+  const deleted = db.deleteSubmission(req.params.id);
+  if (!deleted) return res.status(404).json({ error: "Not found." });
+
+  for (const filename of [deleted.driver_license_path, deleted.resume_path]) {
+    if (!filename) continue;
+    const filePath = path.join(UPLOADS_DIR, path.basename(filename));
+    fs.rm(filePath, { force: true }, () => {});
+  }
+
+  res.json({ success: true });
+});
+
+app.get("/api/admin/uploads/:filename", requireAuth, (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, path.basename(req.params.filename));
+  if (!fs.existsSync(filePath)) return res.status(404).send("Not found.");
+  res.sendFile(filePath);
+});
+
+app.use("/admin", express.static(path.join(__dirname, "..", "public", "admin")));
 
 app.listen(PORT, () => {
   console.log(`Onboarding server listening on http://localhost:${PORT}`);

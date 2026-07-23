@@ -51,4 +51,31 @@ http://localhost:4000/api/quickbooks/connect
 
 This walks you through Intuit's OAuth approval screen and stores the resulting tokens in `server/tokens.json` (gitignored — never commit this file). After that, the onboarding form's final submit will create an employee record in QuickBooks automatically.
 
-**What does and doesn't sync:** QuickBooks Online's public Accounting API allows creating employee records with name, address, SSN, date of birth, and hire date — that part is automated. Direct deposit bank details and W-4 tax withholding live in QuickBooks Online Payroll, which Intuit does not expose via public API to third-party apps. Those fields are logged server-side for manual entry into QB Payroll until/unless you get approved partner access for payroll writes.
+**What does and doesn't sync:** QuickBooks Online's public Accounting API allows creating employee records with name, address, SSN, date of birth, and hire date — that part is automated. Direct deposit bank details and W-4 tax withholding live in QuickBooks Online Payroll, which Intuit does not expose via public API to third-party apps. Those fields are stored securely (see below) for HR/Payroll to enter manually into QB Payroll.
+
+## Data storage and HR/Payroll dashboard
+
+Every submission is saved to a local SQLite database (`server/data.db`), regardless of whether the QuickBooks sync succeeds — QuickBooks is a best-effort sync, not the source of truth. Sensitive fields (SSN, bank routing/account numbers) are encrypted at rest with AES-256-GCM before being written to disk. Uploaded files (driver's license photo, resume) are stored in `server/uploads/`.
+
+Set these additional variables in `server/.env` (see `.env.example` for the full list):
+
+- `ENCRYPTION_KEY` — 64-character hex string. Generate with:
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- `SESSION_SECRET` — any long random string, for signing the admin login session.
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` — a single shared HR/Payroll login. Generate the password hash with:
+  ```bash
+  node scripts/hash-password.js "your-password"
+  ```
+  Run this again any time you want to change the password, then paste the new hash into `.env`.
+
+Optionally, fill in the `SMTP_*` and `NOTIFY_EMAIL_TO` variables to get an email notification whenever a new submission comes in. Leave them blank to skip notifications entirely (nothing breaks — it just logs a warning and moves on).
+
+Once the server is running, HR/Payroll can log in at:
+
+```
+http://localhost:4000/admin
+```
+
+to see every submission (name, date, QuickBooks sync status), view full details for manual entry into QB Payroll, download the uploaded license photo/resume, and remove a submission once it's been processed.

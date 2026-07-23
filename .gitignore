@@ -12,9 +12,13 @@ dist
 dist-ssr
 *.local
 
-# Backend secrets
+# Backend secrets and local data
 server/.env
 server/tokens.json
+server/data.db
+server/data.db-shm
+server/data.db-wal
+server/uploads/
 
 # Editor directories and files
 .vscode/*
